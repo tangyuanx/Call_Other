@@ -1,0 +1,15 @@
+{
+  "passed": [
+    "official clangd extension with real clangd 20.1.8",
+    "right-click command -> VS Code call hierarchy commands -> bottom webview",
+    "native VS Code webview loads renderer scripts successfully",
+    "both directions initially visible, still independently collapsible",
+    "expansion from a non-root function",
+    "reverse expansion creates independent caller occurrences and ancestor references",
+    "node click reveals correct source definition",
+    "branch collapse",
+    "untrusted IDs and stale messages ignored",
+    "refresh rereads root and restores both directions"
+  ],
+  "failed": []
+}

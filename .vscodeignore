@@ -1,0 +1,17 @@
+node_modules/**
+test/**
+scripts/**
+.vscode/**
+package-lock.json
+design-qa.md
+VALIDATION.md
+evidence/**
+.test-results/**
+**/*.png
+**/*.zip
+**/*.vsix
+.github/**
+dist/**
+PUBLISHING.md
+CONTRIBUTING.md
+.gitattributes

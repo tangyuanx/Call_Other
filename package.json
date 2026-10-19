@@ -1,0 +1,131 @@
+{
+  "name": "compact-call-graph",
+  "displayName": "Compact Call Graph · 函数调用关系",
+  "description": "可点击、按节点展开的轻量函数调用图，支持 C/C++ 等语言服务。",
+  "version": "0.1.2",
+  "publisher": "tangyuanx",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "call graph",
+    "call hierarchy",
+    "C",
+    "C++",
+    "clangd"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onView:compactCallGraph.graph"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "compactCallGraph.show",
+        "title": "展示调用关系",
+        "category": "调用关系"
+      },
+      {
+        "command": "compactCallGraph.refresh",
+        "title": "刷新调用关系",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "compactCallGraph.show",
+          "when": "editorHasCallHierarchyProvider",
+          "group": "navigation@30"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "compactCallGraph.refresh",
+          "when": "view == compactCallGraph.graph",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "compactCallGraph",
+          "title": "调用关系",
+          "icon": "media/graph.svg"
+        }
+      ]
+    },
+    "views": {
+      "compactCallGraph": [
+        {
+          "type": "webview",
+          "id": "compactCallGraph.graph",
+          "name": "调用关系"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Compact Call Graph",
+      "properties": {
+        "compactCallGraph.maxNodes": {
+          "type": "integer",
+          "default": 300,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "每张图最多可载入的函数节点数；不同路径的重复函数分别计数。"
+        },
+        "compactCallGraph.maxRelationsPerNode": {
+          "type": "integer",
+          "default": 40,
+          "minimum": 1,
+          "maximum": 200,
+          "description": "单个节点每个方向最多显示多少个直接关系。超出时会提示，可提高此值后刷新。"
+        },
+        "compactCallGraph.requestTimeout": {
+          "type": "integer",
+          "default": 15000,
+          "minimum": 1000,
+          "maximum": 120000,
+          "description": "等待语言服务的超时时间（毫秒）。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check.js",
+    "prepare-assets": "node scripts/assets.js",
+    "package": "node scripts/package.js",
+    "release:check": "node scripts/release.js"
+  },
+  "devDependencies": {
+    "@vscode/codicons": "^0.0.45",
+    "@vscode/vsce": "^3.6.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tangyuanx/Call_Other.git"
+  },
+  "homepage": "https://github.com/tangyuanx/Call_Other#readme",
+  "bugs": {
+    "url": "https://github.com/tangyuanx/Call_Other/issues"
+  },
+  "pricing": "Free"
+}

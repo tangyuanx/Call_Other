@@ -1,0 +1,12 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.join(__dirname, '..');
+const pkg = path.dirname(require.resolve('@vscode/codicons/package.json'));
+const target = path.join(root, 'media', 'codicons');
+fs.mkdirSync(target, { recursive: true });
+for (const file of ['codicon.css', 'codicon.ttf']) fs.copyFileSync(path.join(pkg, 'dist', file), path.join(target, file));
+fs.copyFileSync(path.join(pkg, 'LICENSE'), path.join(target, 'LICENSE'));
+const icon = ['type-hierarchy', 'call-outgoing', 'symbol-method'].map(name => path.join(pkg, 'src', 'icons', `${name}.svg`)).find(p => fs.existsSync(p));
+if (!icon) throw new Error('Cannot locate the supplied Codicons graph icon.');
+fs.copyFileSync(icon, path.join(root, 'media', 'graph.svg'));

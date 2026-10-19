@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable tag to release (e.g. v0.1.2)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      file: ${{ steps.version.outputs.file }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Validate version and main-branch ancestry
+        id: version
+        run: |
+          node scripts/release.js "$RELEASE_TAG"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          git merge-base --is-ancestor HEAD origin/main
+      - run: npm run check
+      - run: npm test
+      - run: npm run package
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-vsix
+          path: dist/*.vsix
+          if-no-files-found: error
+      - name: Explain Marketplace status
+        if: vars.MARKETPLACE_PUBLISH_ENABLED != 'true'
+        run: echo 'Marketplace publishing is not enabled yet. This run creates a GitHub release only; see PUBLISHING.md.' >> "$GITHUB_STEP_SUMMARY"
+
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release-vsix
+          path: dist
+      - name: Create release and attach installable package
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/*.vsix --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/*.vsix --verify-tag --title "$RELEASE_TAG" --generate-notes
+          fi
+
+  marketplace:
+    if: vars.MARKETPLACE_PUBLISH_ENABLED == 'true'
+    needs: [build, github-release]
+    runs-on: ubuntu-latest
+    environment: marketplace
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      AUTH_MODE: ${{ vars.MARKETPLACE_AUTH_MODE || 'oidc' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release-vsix
+          path: dist
+      - name: Check publishing configuration
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          node scripts/release.js "$RELEASE_TAG"
+          case "$AUTH_MODE" in
+            oidc) test -n "$AZURE_CLIENT_ID" && test -n "$AZURE_TENANT_ID" ;;
+            pat) test -n "$VSCE_PAT" ;;
+            *) echo 'MARKETPLACE_AUTH_MODE must be oidc or pat'; exit 1 ;;
+          esac
+      - name: Sign in with Microsoft Entra OIDC
+        if: env.AUTH_MODE == 'oidc'
+        uses: azure/login@935127ca5bb3c4b02c9c2c10060028383878f33f # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - name: Publish tested VSIX using OIDC
+        if: env.AUTH_MODE == 'oidc'
+        env:
+          VSIX_FILE: ${{ needs.build.outputs.file }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: npx --no-install vsce publish --packagePath "dist/$VSIX_FILE" --azure-credential --skip-duplicate
+      - name: Publish tested VSIX using PAT
+        if: env.AUTH_MODE == 'pat'
+        env:
+          VSIX_FILE: ${{ needs.build.outputs.file }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx --no-install vsce publish --packagePath "dist/$VSIX_FILE" --skip-duplicate

@@ -1,0 +1,10 @@
+'use strict';
+const { mkdirSync } = require('node:fs');
+const { join, dirname } = require('node:path');
+const { execFileSync } = require('node:child_process');
+const manifest = require('../package.json');
+const root = join(__dirname, '..');
+require('./assets');
+mkdirSync(join(root, 'dist'), { recursive: true });
+const cli = join(dirname(require.resolve('@vscode/vsce/package.json')), 'vsce');
+execFileSync(process.execPath, [cli, 'package', '--no-dependencies', '--out', join(root, 'dist', `${manifest.name}-${manifest.version}.vsix`)], { cwd: root, stdio: 'inherit' });
