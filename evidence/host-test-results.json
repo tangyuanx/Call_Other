@@ -5,7 +5,7 @@
     "native VS Code webview loads renderer scripts successfully",
     "both directions initially visible, still independently collapsible",
     "expansion from a non-root function",
-    "reverse expansion creates independent caller occurrences and ancestor references",
+    "reverse expansion keeps other callers and removes already displayed parent controls",
     "node click reveals correct source definition",
     "branch collapse",
     "untrusted IDs and stale messages ignored",

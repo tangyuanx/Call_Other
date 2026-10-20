@@ -104,8 +104,69 @@ test('visible leaf discovery removes empty controls without expanding hidden nod
   const state = graph.snapshot(); assert.deepEqual(names(graph), ['a', 'b', 'c']);
   const leaf = state.nodes.find(n => n.name === 'c');
   assert.equal(leaf.outgoing.loaded, true); assert.equal(leaf.outgoing.count, 0); assert.equal(leaf.outgoing.canExpand, false);
-  assert.equal(leaf.incoming.canExpand, true, 'callers are expanded as a private branch, never merged into the root');
+  assert.equal(leaf.incoming.canExpand, false, 'the sole caller is already displayed as its parent');
   assert.equal(state.nodes.find(n => n.name === 'b').outgoing.canExpand, true);
+});
+
+test('a displayed caller edge does not create a reverse expand button on its callee', async () => {
+  const a = item('caller'), b = item('callee', 10);
+  const graph = new CallGraph(a, provider([[a, b]]));
+  await graph.toggle(graph.root, 'outgoing'); await graph.inspectVisible();
+  const child = graph.snapshot().nodes.find(n => n.name === 'callee');
+  assert.equal(child.incoming.loaded, true); assert.equal(child.incoming.count, 0); assert.equal(child.incoming.canExpand, false);
+  await graph.toggle(child.id, 'incoming');
+  assert.deepEqual(names(graph), ['callee', 'caller']);
+  assert.equal(graph.snapshot().nodes.find(n => n.root).outgoing.open, true);
+});
+
+test('a displayed callee edge does not create a reverse expand button on its caller', async () => {
+  const a = item('caller'), b = item('callee', 10);
+  const graph = new CallGraph(b, provider([[a, b]]));
+  await graph.toggle(graph.root, 'incoming'); await graph.inspectVisible();
+  const child = graph.snapshot().nodes.find(n => n.name === 'caller');
+  assert.equal(child.outgoing.count, 0); assert.equal(child.outgoing.canExpand, false);
+  await graph.toggle(child.id, 'outgoing');
+  assert.equal(graph.snapshot().edges.length, 1); assert.equal(graph.snapshot().nodes.length, 2);
+});
+
+test('reverse expansion still exposes other relations and collapses independently', async () => {
+  const a = item('a'), b = item('b', 10), c = item('c', 20), d = item('d', 30);
+  const graph = new CallGraph(b, provider([[a, b], [a, c], [d, b]]));
+  await graph.toggle(graph.root, 'incoming'); await graph.inspectVisible();
+  const aId = idFor(graph, 'a'); const branch = graph.snapshot().nodes.find(n => n.id === aId).outgoing;
+  assert.equal(branch.additional, true); assert.equal(branch.count, 1); assert.equal(branch.canExpand, true);
+  await graph.toggle(aId, 'outgoing'); assert.deepEqual(names(graph), ['a', 'b', 'c', 'd']);
+  assert.equal(graph.snapshot().nodes.filter(n => n.name === 'b').length, 1);
+  await graph.toggle(aId, 'outgoing'); assert.deepEqual(names(graph), ['a', 'b', 'd']);
+  assert.equal(graph.snapshot().nodes.find(n => n.root).incoming.open, true);
+});
+
+test('shared query results exclude the correct displayed parent for each occurrence', async () => {
+  const root = item('root'), a = item('a', 10), b = item('b', 20), c = item('c', 30);
+  let reads = 0; const query = provider([[root, a], [root, b], [a, c], [b, c]]);
+  const graph = new CallGraph(root, async (node, direction) => { if (node === c && direction === 'incoming') reads++; return query(node, direction); });
+  await graph.toggle(graph.root, 'outgoing');
+  await graph.toggle(idFor(graph, 'a'), 'outgoing'); await graph.toggle(idFor(graph, 'b'), 'outgoing');
+  const copies = graph.snapshot().nodes.filter(n => n.name === 'c');
+  for (const copy of copies) await graph.toggle(copy.id, 'incoming');
+  assert.equal(reads, 1);
+  for (const copy of copies) {
+    const parent = graph.parents.get(copy.id).id;
+    const group = graph.snapshot().groups.find(g => g.id === copy.id && g.direction === 'incoming');
+    assert.equal(group.members.length, 1);
+    assert.notEqual(graph.items.get(group.members[0].id).name, graph.items.get(parent).name);
+  }
+});
+
+test('excluding the displayed parent does not hide a mutual call or consume the relation limit', async () => {
+  const a = item('a'), b = item('b', 10), c = item('c', 20), d = item('d', 30);
+  const graph = new CallGraph(a, provider([[a, b], [b, a], [c, b], [d, b]]), { maxRelations: 2 });
+  await graph.toggle(graph.root, 'outgoing'); const bId = idFor(graph, 'b');
+  await graph.toggle(bId, 'incoming');
+  assert.deepEqual(names(graph), ['a', 'b', 'c', 'd']);
+  assert.equal(graph.snapshot().nodes.find(n => n.id === bId).incoming.warning, '');
+  await graph.toggle(bId, 'outgoing');
+  assert.ok(graph.snapshot().nodes.some(n => n.name === 'a' && n.reference), 'b -> a is a distinct mutual call, not the reverse view of a -> b');
 });
 
 test('inspecting visible nodes does not allocate or recursively query hidden occurrences', async () => {

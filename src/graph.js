@@ -49,11 +49,16 @@ class CallGraph {
       const calls = await this.queryCached(this.items.get(branch.id), branch.direction);
       if (!this.alive) return;
       if (calls != null && !Array.isArray(calls)) throw new Error('语言服务返回了无效的调用关系。');
+      // The edge back to the immediate parent is already drawn and controlled
+      // by that parent's branch. Filter it per occurrence, after cache lookup.
+      const parent = this.parents.get(branch.id);
+      const displayedParent = parent && parent.direction !== branch.direction ? keyOf(this.items.get(parent.id)) : undefined;
       const unique = new Map();
       for (const call of calls || []) {
         const item = branch.direction === 'incoming' ? call.from : call.to;
         if (!item?.uri || !item.selectionRange || typeof item.name !== 'string') continue;
         const symbol = keyOf(item);
+        if (symbol === displayedParent) continue;
         if (!unique.has(symbol)) unique.set(symbol, { symbol, item, count: call.fromRanges?.length || 1 });
         else unique.get(symbol).count += call.fromRanges?.length || 1;
       }
@@ -123,11 +128,12 @@ class CallGraph {
   snapshot(label = item => item.uri.toString()) {
     const visible = this.visible();
     const nodes = [...visible.ids].map(id => {
-      const item = this.items.get(id), reference = this.references.has(id);
+      const item = this.items.get(id), reference = this.references.has(id), parent = this.parents.get(id);
       const node = { id, symbol: keyOf(item), name: item.name, kind: item.kind, detail: item.detail || '', location: label(item), root: id === this.root, reference };
       for (const direction of DIRECTIONS) {
         const b = this.branches.get(branchKey(id, direction));
         node[direction] = b && !reference ? { open: b.open, loading: b.loading, loaded: b.loaded, count: b.relations.length, canExpand: b.loaded && b.relations.length > 0, error: b.error, warning: b.warning } : { open: false, loading: false, loaded: false, count: null, canExpand: false };
+        node[direction].additional = Boolean(parent && parent.direction !== direction);
         if (reference) node[direction] = { open: false, loading: false, loaded: true, count: 0, canExpand: false };
       }
       return node;

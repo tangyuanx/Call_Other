@@ -61,10 +61,12 @@ exports.run = async function () {
     await provider.onMessage({ type: 'toggle', id: target.id, direction: 'outgoing', sequence: provider.sequence });
     assert.equal(provider.graph.snapshot().nodes.length, 8); report.passed.push('expansion from a non-root function');
     await provider.onMessage({ type: 'toggle', id: target.id, direction: 'incoming', sequence: provider.sequence });
-    assert.equal(provider.graph.snapshot().nodes.length, 10);
-    assert.equal(provider.graph.snapshot().nodes.filter(n => n.name === 'handle_request').length, 2);
-    assert.ok(provider.graph.snapshot().nodes.some(n => n.name === 'handle_request' && n.reference));
-    report.passed.push('reverse expansion creates independent caller occurrences and ancestor references');
+    assert.equal(provider.graph.snapshot().nodes.length, 9);
+    assert.equal(provider.graph.snapshot().nodes.filter(n => n.name === 'handle_request').length, 1);
+    assert.equal(provider.graph.snapshot().nodes.find(n => n.id === target.id).incoming.count, 1);
+    const validate = provider.graph.snapshot().nodes.find(n => n.name === 'validate_request');
+    assert.equal(validate.incoming.canExpand, false, 'Already displayed parent is not another expandable caller');
+    report.passed.push('reverse expansion keeps other callers and removes already displayed parent controls');
     await provider.onMessage({ type: 'toggle', id: target.id, direction: 'incoming', sequence: provider.sequence });
     assert.equal(provider.graph.snapshot().nodes.length, 8);
     await provider.onMessage({ type: 'navigate', id: target.id, sequence: provider.sequence });

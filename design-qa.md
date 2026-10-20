@@ -61,3 +61,11 @@ The browser verification surface uses the production `media/graph.js`, `layout.j
 - Recaptured initial and expanded views at the established bottom-panel sizes. All six initial occurrences fit at 100%; the four toolbar buttons are refresh, zoom out, zoom in, and fit.
 - Browser check: ten occurrences after expanding both sides of dispatch_request, selected function correctly updated, validate_request has no outgoing control, caller collapse preserves the callee branch.
 - Reran all 24 unit checks, syntax checks and all 10 real clangd extension-host checks successfully.
+
+## 0.1.3: duplicate opposite-direction controls
+
+- The reported plus/minus pair belonged to opposite endpoints. Visible-node probing previously counted the already displayed parent edge as another expandable relationship.
+- Reverse branch reads now exclude that immediate parent per occurrence after consulting shared raw query data. True mutual calls and self recursion are unaffected. Other reverse relationships still get independent branches; their control explicitly says other callers/callees.
+- Browser verification: selected on_readable has no outgoing control; validate_request has no incoming control. dispatch_request keeps its distinct shared_path caller and its two outgoing children. Opening both sides yields nine occurrences, without duplicating handle_request; collapse preserves the opposite side.
+- Evidence: controls-0.1.3.jpg, 1424 by 204, normal 100 percent zoom. Existing 0.1.1 screenshots are historical; this update supersedes their reverse-parent reference behavior.
+- All 32 unit tests and all 10 native clangd checks pass. No new visual assets or changes to node borders, spacing, line routing, or keyboard focus behavior.

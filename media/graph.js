@@ -120,7 +120,7 @@
           const centerY = node.y + node.height / 2;
           edges.append(svg('path', { d: left ? `M ${portX} ${centerY} H ${edge}` : `M ${edge} ${centerY} H ${portX}` }));
         }
-        const noun = direction === 'incoming' ? '调用者' : '被调用者';
+        const noun = `${branch.additional ? '其他' : ''}${direction === 'incoming' ? '调用者' : '被调用者'}`;
         const action = branch.open ? '收起' : '展开';
         const portLabel = branch.loading ? `正在查询${noun}，点击可${branch.open ? '收起' : '展开'}` : `${action}${node.name}的${noun}`;
         const glyph = branch.loading ? 'loading' : branch.open ? 'remove' : 'add';
