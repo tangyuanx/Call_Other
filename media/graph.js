@@ -5,7 +5,6 @@
   const NS = 'http://www.w3.org/2000/svg';
   let state = { sequence: -1 }, geometry, zoom = 1, pan = { x: 0, y: 0 }, initialized = false;
   let drag = null, resizeTimer;
-  const stored = api.getState();
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const icon = name => { const e = el('span', `codicon codicon-${name}`); e.setAttribute('aria-hidden', 'true'); return e; };
   function button(label, iconName, handler, cls = 'icon-button') {
@@ -41,7 +40,8 @@
   const message = el('span', 'message'); const zoomLabel = el('span', 'zoom-label', '100%'); status.append(message, zoomLabel);
   app.append(toolbar, viewport, status);
 
-  function remember() { api.setState({ root: state.graph?.root, zoom, pan }); }
+  let viewportSize = { width: viewport.clientWidth, height: viewport.clientHeight };
+  const size = () => ({ width: viewport.clientWidth, height: viewport.clientHeight });
   function transform() {
     canvas.style.transform = `translate(${pan.x}px,${pan.y}px) scale(${zoom})`;
     zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
@@ -50,12 +50,11 @@
     if (!geometry?.nodes.length || !viewport.clientWidth || !viewport.clientHeight) return;
     zoom = Math.min(1, Math.max(.2, Math.min((viewport.clientWidth - 16) / geometry.width, (viewport.clientHeight - 2) / geometry.height)));
     pan = { x: (viewport.clientWidth - geometry.width * zoom) / 2, y: (viewport.clientHeight - geometry.height * zoom) / 2 };
-    transform(); remember();
+    transform();
   }
   function setZoom(value, point = { x: viewport.clientWidth / 2, y: viewport.clientHeight / 2 }) {
-    const next = Math.max(.2, Math.min(2, value));
-    pan = { x: point.x - (point.x - pan.x) * next / zoom, y: point.y - (point.y - pan.y) * next / zoom };
-    zoom = next; transform(); remember();
+    ({ zoom, pan } = CallGraphViewport.zoomAt(zoom, pan, value, point));
+    transform();
   }
   function render() {
     const focused = document.activeElement;
@@ -144,27 +143,27 @@
     const errors = graph.nodes.flatMap(n => [n.incoming.error, n.outgoing.error]).filter(Boolean);
     const warnings = graph.nodes.flatMap(n => [n.incoming.warning, n.outgoing.warning]).filter(Boolean);
     const isolated = graph.edges.length === 0 && !busy && !errors.length;
-    const text = state.status || errors[0] || warnings[0] || (busy ? '正在查询调用关系…' : isolated ? '没有返回调用关系；可等待语言服务索引完成后刷新。' : '点击函数跳转 · 左侧展开调用者 · 右侧展开被调用者 · 拖动平移 / 滚轮缩放');
+    const text = state.status || errors[0] || warnings[0] || (busy ? '正在查询调用关系…' : isolated ? '没有返回调用关系；可等待语言服务索引完成后刷新。' : '点击函数跳转 · 左侧调用者 / 右侧被调用者 · 滚轮上下滚动 · Ctrl＋滚轮缩放 · 拖动平移');
     message.textContent = text; message.title = text; status.classList.toggle('error', Boolean(errors.length || state.status));
     if (!initialized) {
       initialized = true;
-      if (stored?.root === graph.root && Number.isFinite(stored.zoom) && Number.isFinite(stored.pan?.x) && Number.isFinite(stored.pan?.y)) {
-        zoom = Math.max(.2, Math.min(2, stored.zoom)); pan = stored.pan; transform();
-      } else fit();
-    } else if (previous?.nodes.length === 1 && geometry.nodes.length > 1) fit();
-    else transform();
+      viewportSize = size();
+      ({ zoom, pan } = CallGraphViewport.initialView(geometry, viewportSize));
+    }
+    transform();
   }
 
   window.addEventListener('message', event => {
     const next = event.data;
     if (next?.type !== 'state' || !Number.isInteger(next.sequence) || next.sequence < state.sequence) return;
-    if (next.graph?.root !== state.graph?.root) { initialized = false; geometry = undefined; }
+    if (next.graph?.root !== state.graph?.root || next.graph?.session !== state.graph?.session) { initialized = false; geometry = undefined; }
     state = next; render();
   });
   viewport.addEventListener('wheel', event => {
-    if (!state.graph) return;
+    if (!state.graph || !geometry) return;
     event.preventDefault(); const rect = viewport.getBoundingClientRect();
-    setZoom(zoom * Math.exp(-event.deltaY * .0015), { x: event.clientX - rect.left, y: event.clientY - rect.top });
+    ({ zoom, pan } = CallGraphViewport.wheelView({ zoom, pan }, geometry, size(), event, { x: event.clientX - rect.left, y: event.clientY - rect.top }));
+    transform();
   }, { passive: false });
   viewport.addEventListener('pointerdown', event => {
     if (event.button !== 0 || event.target.closest('button')) return;
@@ -175,8 +174,19 @@
     if (!drag) return;
     pan = { x: drag.pan.x + event.clientX - drag.x, y: drag.pan.y + event.clientY - drag.y }; transform();
   });
-  function endDrag() { if (drag) { drag = null; viewport.classList.remove('dragging'); remember(); } }
+  function endDrag() { if (drag) { drag = null; viewport.classList.remove('dragging'); } }
   viewport.addEventListener('pointerup', endDrag); viewport.addEventListener('pointercancel', endDrag);
-  new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (initialized) fit(); }, 80); }).observe(viewport);
+  new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const next = size();
+      if (initialized) {
+        pan.x += (next.width - viewportSize.width) / 2;
+        pan.y += (next.height - viewportSize.height) / 2;
+        transform();
+      }
+      viewportSize = next;
+    }, 80);
+  }).observe(viewport);
   render(); send('ready');
 })();

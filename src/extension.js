@@ -20,6 +20,7 @@ function getHtml(webview, extensionUri) {
   <link rel="stylesheet" href="${asset('graph.css')}"><title>调用关系</title></head>
   <body><main id="app"></main>
   <script nonce="${nonce}" src="${asset('layout.js')}"></script>
+  <script nonce="${nonce}" src="${asset('viewport.js')}"></script>
   <script nonce="${nonce}" src="${asset('graph.js')}"></script></body></html>`;
 }
 

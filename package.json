@@ -2,7 +2,7 @@
   "name": "compact-call-graph",
   "displayName": "Compact Call Graph · 函数调用关系",
   "description": "可点击、按节点展开的轻量函数调用图，支持 C/C++ 等语言服务。",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "tangyuanx",
   "license": "MIT",
   "engines": {

@@ -138,7 +138,7 @@ class CallGraph {
       }
       return node;
     });
-    return { root: this.root, nodes, edges: visible.edges, groups: visible.groups };
+    return { session: this.prefix, root: this.root, nodes, edges: visible.edges, groups: visible.groups };
   }
 }
 module.exports = { CallGraph, keyOf, branchKey };

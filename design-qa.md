@@ -69,3 +69,12 @@ The browser verification surface uses the production `media/graph.js`, `layout.j
 - Browser verification: selected on_readable has no outgoing control; validate_request has no incoming control. dispatch_request keeps its distinct shared_path caller and its two outgoing children. Opening both sides yields nine occurrences, without duplicating handle_request; collapse preserves the opposite side.
 - Evidence: controls-0.1.3.jpg, 1424 by 204, normal 100 percent zoom. Existing 0.1.1 screenshots are historical; this update supersedes their reverse-parent reference behavior.
 - All 32 unit tests and all 10 native clangd checks pass. No new visual assets or changes to node borders, spacing, line routing, or keyboard focus behavior.
+
+## 0.1.4: default size and wheel navigation
+
+- Current request supersedes earlier automatic fit / plain-wheel zoom behavior. New graphs and refresh start at 100 percent, centered on the root. Large graphs stay readable and can be moved vertically with the wheel.
+- Plain wheel changes only vertical translation and stops at the content bounds. Line and page wheel units are normalized. Ctrl+wheel uses the pointer as the zoom anchor; toolbar zoom and explicit fit remain available.
+- Expansion preserves the anchor and current scale. Resizing shifts the view center without changing scale. New graph sessions are distinguished even when refreshing the same root, so prior manual zoom is not restored on a new graph.
+- Browser checks: 1424x170 panel opens at 100 percent; a downward wheel changes y from -17.5 to -39 while x and scale remain fixed. Toolbar zoom to 115 percent remains 115 after expansion and resize; refresh resets to 100 percent.
+- Ctrl+wheel geometry is covered directly by production viewport-function tests. Browser automation cannot hold a modifier across its separate wheel command, so this report does not claim a native combined-input check.
+- Evidence: navigation-0.1.4.jpg, 1424x204. All 38 tests and all 10 real clangd host checks pass; the additional local viewport script loads under the extension CSP.
